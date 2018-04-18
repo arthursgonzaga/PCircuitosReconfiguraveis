@@ -1,7 +1,7 @@
 ----------------------------------------------------------------------------------
 -- [PCR] Lista de Exercício 01 
 -- Exercício nº 2 - Cálculo do Ganho de um Filtro Kalman
--- Alunos: Arthur Gonzaga - 14/00
+-- Alunos: Arthur Gonzaga - 14/0016775
 -- 		   Leonardo Brandão - 14/0025197 
 -- 
 ----------------------------------------------------------------------------------

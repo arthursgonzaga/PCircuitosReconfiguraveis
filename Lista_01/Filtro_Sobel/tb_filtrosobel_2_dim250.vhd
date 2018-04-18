@@ -1,3 +1,12 @@
+----------------------------------------------------------------------------------
+-- [PCR] Lista de Exercício 01 
+-- Exercício nº 1 - Implementação de Filtro Sobel
+-- Alunos: Arthur Gonzaga - 14/0016775
+-- 		   Leonardo Brandão - 14/0025197 
+-- 
+----------------------------------------------------------------------------------
+
+
 -- Bordas Verticais
 
 library IEEE;
