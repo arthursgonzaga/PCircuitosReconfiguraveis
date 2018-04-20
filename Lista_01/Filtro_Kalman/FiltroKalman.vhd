@@ -1,7 +1,7 @@
 ----------------------------------------------------------------------------------
 -- [PCR] Lista de Exercício 01 
 -- Exercício nº 2 - Cálculo do Ganho de um Filtro Kalman
--- Alunos: Arthur Gonzaga - 14/0016775
+-- Alunos: Arthur Gonzaga - 14/00
 -- 		   Leonardo Brandão - 14/0025197 
 -- 
 ----------------------------------------------------------------------------------
@@ -43,18 +43,21 @@ component multiplierfsm_v2 is
         ready_mul : out std_logic);
 end component;	
 
-	component divisor is
-	end component;
+component divisor is
+  port (aclk : in STD_LOGIC;
+		s_axis_divisor_tvalid : in STD_LOGIC;
+		s_axis_divisor_tdata : in STD_LOGIC_VECTOR ( 15 downto 0 );
+		s_axis_dividend_tvalid : in STD_LOGIC;
+		s_axis_dividend_tdata : in STD_LOGIC_VECTOR ( 15 downto 0 );
+		m_axis_dout_tvalid : out STD_LOGIC;
+		m_axis_dout_tdata : out STD_LOGIC_VECTOR ( 31 downto 0 ));
+end component;
 
-	--Sinal de READY--
-	signal s_ready : std_logic := '0';
-
-	--Registrador de entrada--
+	-- Registrador de entrada --
 	-- A matriz de entrada A é 3x3 e portanto tem 9 posições de 16 bits (9*16 = 144) 
 	signal reg_IN : STD_LOGIC_VECTOR (143 downto 0) := (others => '0');
-	signal flag1 : STD_LOGIC := '0';
 
-	--Matriz de entrada A 3x3--
+	-- Matriz de entrada A 3x3 --
 	signal A11 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal A12 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal A13 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
@@ -65,7 +68,7 @@ end component;
 	signal A32 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal A33 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 
-	--Matriz constante B 2x3--
+	-- Matriz constante B 2x3 --
 	constant B11 : STD_LOGIC_VECTOR (15 downto 0) := "0000001000000000"; -- (+2,0) -- Bt11
 	constant B12 : STD_LOGIC_VECTOR (15 downto 0) := "1000000010000000"; -- (-0,5) -- Bt21
 	constant B13 : STD_LOGIC_VECTOR (15 downto 0) := "0000000110000000"; -- (+1,5) -- Bt31
@@ -73,14 +76,8 @@ end component;
 	constant B22 : STD_LOGIC_VECTOR (15 downto 0) := "0000000010000000"; -- (+0,5) -- Bt22 
 	constant B23 : STD_LOGIC_VECTOR (15 downto 0) := "1000001000000000"; -- (-2,0) -- Bt32
 
-	--Matriz constante C 2x2--
-	--constant c11 : STD_LOGIC_VECTOR (15 downto 0) := "00000000.10000000"; -- (0,5)
-	--constant c12 : STD_LOGIC_VECTOR (15 downto 0) := "0000000000000000"; -- (0,0)
-	--constant c21 : STD_LOGIC_VECTOR (15 downto 0) := "0000000000000000"; -- (0,0) 
-	--constant c22 : STD_LOGIC_VECTOR (15 downto 0) := "00000000.10000000"; -- (0,5)
-
-	--Registrador X --
-	-- A primeira multiplicação (A*BT) gera uma matriz X de tamanho 3x2
+	-- Registrador X --
+	-- Usado para armazenar (A*BT)
 	signal X11 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal X12 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal X21 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
@@ -88,20 +85,45 @@ end component;
 	signal X31 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal X32 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 
-	--Registrador Y
-	-- Asegunda Multiplicação (A*BT*B) gera uma matriz Y de tamanho 2x2
+	-- Registrador Y --
+	-- usado para armazenar a operação (A*BT*B) 
 	signal Y11 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal Y12 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal Y21 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal Y22 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 
-	--Sinal da matriz de saída K--
-	signal s_k11 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
-	signal s_k12 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
-	signal s_k21 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
-	signal s_k22 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	-- Registrador Z --
+	-- usado pra armazenar a operação (A*BT*B + C)
+	signal Z11 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	signal Z12 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	signal Z21 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	signal Z22 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+
+	-- Registrador detZ--
+	-- Armazena o valor do determinante da matriz Z para sua inversão 
+	signal detZ : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	
+	-- Registrador W --
+	-- usado para armazenar a operação (A*BT*B + C)⁻¹
+	signal W11 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	signal W12 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	signal W21 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	signal W22 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+
+	-- Registrador K --
+	-- usado para armazenar (A*BT)*(A*BT*B + C)⁻¹
+	signal K11 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	signal K12 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	signal K21 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	signal K22 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	signal K31 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
+	signal K32 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 
 	--Registradores intermediários de multiplicação e soma --
+	-- A maior quantidade de multiplicações e somas acontece na OP1 (A*BT), 
+	-- sendo A uma matriz 3x3, BT uma matriz 3x2 gerando X uma matriz 3x2 
+	-- o que gera 18 multiplicações em paralelo e 6 somas em paralelo 
+	-- seguidas de mais 6 somas em paralelo.
 	signal m1 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal m2 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal m3 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
@@ -120,7 +142,6 @@ end component;
 	signal m16 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal m17 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal m18 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
-
 	signal s1 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal s2 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal s3 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
@@ -128,9 +149,43 @@ end component;
 	signal s5 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 	signal s6 : STD_LOGIC_VECTOR (15 downto 0) := (others => '0');
 
+	-- Flags de Ready --
+	signal flag1 : STD_LOGIC := '0'; -- flag que indica que OP1 foi realizada (A*BT)
+	signal flag2 : STD_LOGIC := '0'; -- flag que indica que OP2 foi realizada (A*BT*B)
+	signal flag3 : STD_LOGIC := '0'; -- flag que indica que OP3 foi realizada ((A*BT*B)+C)
+	signal flag4 : STD_LOGIC := '0'; -- flag que indica que OP4 foi realizada ((A*BT*B)+C)⁻¹
+	signal flag5 : STD_LOGIC := '0'; -- flag que indica que OP5 foi realizada ((A*BT)*(A*BT*B + C))⁻¹
+	signal flag6 : STD_LOGIC := '0'; -- flag para Ready de saída, que indica que o usuário pode selecionar uma das possíveis saídas
+
+	-- Flag intermediárias de multiplicação e soma --
+	signal rdm1 : STD_LOGIC := '0';
+	signal rdm2 : STD_LOGIC := '0';
+	signal rdm3 : STD_LOGIC := '0';
+	signal rdm4 : STD_LOGIC := '0';
+	signal rdm5 : STD_LOGIC := '0';
+	signal rdm6 : STD_LOGIC := '0';
+	signal rdm7 : STD_LOGIC := '0';
+	signal rdm8 : STD_LOGIC := '0';
+	signal rdm9 : STD_LOGIC := '0';
+	signal rdm10 : STD_LOGIC := '0';
+	signal rdm11 : STD_LOGIC := '0';
+	signal rdm12 : STD_LOGIC := '0';
+	signal rdm13 : STD_LOGIC := '0';
+	signal rdm14 : STD_LOGIC := '0';
+	signal rdm15 : STD_LOGIC := '0';
+	signal rdm16 : STD_LOGIC := '0';
+	signal rdm17 : STD_LOGIC := '0';
+	signal rdm18 : STD_LOGIC := '0';
+	signal rds1 : STD_LOGIC := '0';
+	signal rds2 : STD_LOGIC := '0';
+	signal rds3 : STD_LOGIC := '0';
+	signal rds4 : STD_LOGIC := '0';
+	signal rds5 : STD_LOGIC := '0';
+	signal rds6 : STD_LOGIC := '0';
+
 begin
 
------------------------- 1º processo: Carrega as entradas no reg_IN e monta a Matriz A ---------------------------
+------------------------ 1º Estado (Monta A) : Carrega as entradas no reg_IN e monta a Matriz A ---------------------------
 	process(clk,reset)
 	begin
 		if reset='1' then
@@ -154,7 +209,7 @@ begin
 	A32 <= reg_IN(127 downto 112);
 	A33 <= reg_IN(143 downto 128);
 
-----------------------------------------------Multiplicação A * BT -------------------------------------------------------
+----------------------------------------------2º Estado (A*BT): Multiplicação (X=A*BT) --------------------------------
 ------------------------------------------------ calculo de X11 ------------------------------------------------
 x_m_A11_BT11: multiplierfsm_v2 port map(
 			    reset => reset,
@@ -443,8 +498,36 @@ x_s_s6_m18: addsubfsm_v6 port map(
 		   addsub_out => X32,
 			ready_as  => flag2);
 
-----------------------------------------------Multiplicação (A * BT) * B -------------------------------------------------------
------------------------------------------------- calculo de Y11 ------------------------------------------------
+---------------------------------------- Zerando as Flags intermediárias ------------------------------------------
+
+	flag1 <= '0';
+	rdm1 <= '0';
+	rdm2 <= '0';
+	rdm3 <= '0';
+	rdm4 <= '0';
+	rdm5 <= '0';
+	rdm6 <= '0';
+	rdm7 <= '0';
+	rdm8 <= '0';
+	rdm9 <= '0';
+	rdm10 <= '0';
+	rdm11 <= '0';
+	rdm12 <= '0';
+	rdm13 <= '0';
+	rdm14 <= '0';
+	rdm15 <= '0';
+	rdm16 <= '0';
+	rdm17 <= '0';
+	rdm18 <= '0';
+	rds1 <= '0';
+	rds2 <= '0';
+	rds3 <= '0';
+	rds4 <= '0';
+	rds5 <= '0';
+	rds6 <= '0';
+
+--------------------------------------3º Estado (X*B): Multiplicação Y=(A*BT)*B -----------------------------------
+------------------------------------------------ calculo de Y11 ---------------------------------------------------
 y_m_X11_B11: multiplierfsm_v2 port map(
 			    reset => reset,
 				  clk => clk,
@@ -576,7 +659,7 @@ y_s_m7_m8: addsubfsm_v6 port map(
 				op_b  => m8,	   
 			  start_i => rdm9,   
 		   addsub_out => s3,
-			ready_as  => rds5);
+			ready_as  => rds3);
 
 y_s_s3_m9: addsubfsm_v6 port map(
 				reset => reset,     
@@ -635,8 +718,27 @@ y_s_s4_m12: addsubfsm_v6 port map(
 			  start_i => rds4,   
 		   addsub_out => X22,
 			ready_as  => flag3);
+---------------------------------------- Zerando as Flags intermediárias ------------------------------------------
 
-----------------------------------------------Soma ((A * BT) * B) + C -------------------------------------------------------
+	flag2 <= '0';
+	rdm1 <= '0';
+	rdm2 <= '0';
+	rdm3 <= '0';
+	rdm4 <= '0';
+	rdm5 <= '0';
+	rdm6 <= '0';
+	rdm7 <= '0';
+	rdm8 <= '0';
+	rdm9 <= '0';
+	rdm10 <= '0';
+	rdm11 <= '0';
+	rdm12 <= '0';
+	rds1 <= '0';
+	rds2 <= '0';
+	rds3 <= '0';
+	rds4 <= '0';
+
+------------------------------------- 4º Estado (Y+C): Soma Z=((A*BT)*B)+C -------------------------------------------
 
 z_s_Y11_C11: addsubfsm_v6 port map(
 				reset => reset,     
@@ -645,8 +747,8 @@ z_s_Y11_C11: addsubfsm_v6 port map(
 				op_a  => Y11,	   
 				op_b  => "0000000010000000",   
 			  start_i => flag3,  
-		   addsub_out => s4,
-			ready_as  => rds4);
+		   addsub_out => Z11,
+			ready_as  => rds1);
 
 
 z_s_Y22_C22: addsubfsm_v6 port map(
@@ -656,12 +758,89 @@ z_s_Y22_C22: addsubfsm_v6 port map(
 				op_a  => Y22,	   
 				op_b  => "0000000010000000",	   
 			  start_i => flag3,   
-		   addsub_out => X22,
-			ready_as  => flag3);
+		   addsub_out => Z22,
+			ready_as  => flag4);
 
 		Z12 <= Y12; --Soma com 0 (C12)
 		Z21 <= Y21; --Soma com 0 (C21)
+		
+		flag3 <= '0';
+		rds1 <= '0';
+-------------------------------------------------5º Estado Z ⁻¹:  W = Z ⁻¹ -------------------------------------------------------------
+--------------------------------------------------Calculo do Determinante de Z----------------------------------------------------------
 
+detZ_Z11_Z22: multiplierfsm_v2 port map(
+				reset => reset,
+				  clk => clk,
+			     op_a => Z11,
+				 op_b => Z22,
+			  start_i => flag4,
+			  mul_out => m1,
+			ready_mul => rdm1);
+
+detZ_Z12_Z21: multiplierfsm_v2 port map(
+				reset => reset,
+				  clk => clk,
+			     op_a => Z12,
+				 op_b => Z21,
+			  start_i => flag4,
+			  mul_out => m2,
+			ready_mul => rdm2);
+
+detZ_m1_m2: addsubfsm_v6 port map(
+				reset => reset,     
+        		clk   => clk,     
+				op	  => '0',	   
+				op_a  => m1,	   
+				op_b  => m2,	   
+			  start_i => rdm2,   
+		   addsub_out => detZ,
+			ready_as  => flag5);
+
+		flag4 <= '0';
+		rdm1 <= '0';
+		rdm2 <= '0';
+
+--------------------------------------------- Invertendo Z (W = Z ⁻¹) ---------------------------------------------------
+d_Z22_detZ divisor port map(
+		          aclk => clk,
+ s_axis_divisor_tvalid =>,
+  s_axis_divisor_tdata => detZ,
+s_axis_dividend_tvalid =>,
+ s_axis_dividend_tdata => Z22,
+    m_axis_dout_tvalid => ,
+     m_axis_dout_tdata => W11);
+
+d_-Z12_detZ divisor port map(
+		          aclk =>,
+ s_axis_divisor_tvalid =>,
+  s_axis_divisor_tdata =>,
+s_axis_dividend_tvalid =>,
+ s_axis_dividend_tdata =>,
+    m_axis_dout_tvalid => W12,
+     m_axis_dout_tdata =>);
+
+d_-Z21_detZ divisor port map(
+		          aclk =>,
+ s_axis_divisor_tvalid =>,
+  s_axis_divisor_tdata =>,
+s_axis_dividend_tvalid =>,
+ s_axis_dividend_tdata =>,
+    m_axis_dout_tvalid => W21,
+     m_axis_dout_tdata =>);
+
+d_Z11_detZ divisor port map(
+		          aclk =>,
+ s_axis_divisor_tvalid =>,
+  s_axis_divisor_tdata =>,
+s_axis_dividend_tvalid =>,
+ s_axis_dividend_tdata =>,
+    m_axis_dout_tvalid => W22,
+     m_axis_dout_tdata =>);
+	
+
+------------------------------------------------- 6º Estado W*X: K = W*X -----------------------------------------------
+---------------------------------------- 7º Estado sel K: Seleciona uma posição de K -----------------------------------
 
 end Behavioral;
 
